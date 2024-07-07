@@ -18,6 +18,7 @@ intents: Intents = Intents.default()
 intents.message_content = True
 client = commands.Bot(command_prefix="!", intents=discord.Intents.all())
 nlp = spacy.load("en_core_web_sm")
+allowed_channels = [1253259448865001556, 1259478711682465822]
 
 def get_gif(query):
     url = f"https://api.tenor.com/v1/search?q={query}&key={tenor_api}&limit=100"
@@ -64,12 +65,18 @@ async def on_ready() -> None:
 async def hello(interaction: discord.Interaction):
     await interaction.response.send_message(f'Hello {interaction.user.mention}, You\'re a true one')
 
+@client.tree.command(name="help")
+async def help(interaction: discord.Interaction):
+    await interaction.response.send_message("Get some help here: 0800 543 354")
 
 @client.event
 async def on_message(message: Message) -> None:
     if message.author == client.user:
         return
     
+    if message.channel.id not in allowed_channels:
+        return
+
     keywords = extract_keywords(message.content.lower())
 
     for keyword in keywords:
