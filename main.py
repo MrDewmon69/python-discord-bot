@@ -20,7 +20,7 @@ client = commands.Bot(command_prefix="!", intents=discord.Intents.all())
 nlp = spacy.load("en_core_web_sm")
 
 def get_gif(query):
-    url = f"https://api.tenor.com/v1/search?q={query}&key={tenor_api}&limit=10"
+    url = f"https://api.tenor.com/v1/search?q={query}&key={tenor_api}&limit=100"
     response = requests.get(url)
     try:
         response.raise_for_status()
