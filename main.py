@@ -3,29 +3,48 @@ from dotenv import load_dotenv
 import discord
 from discord import Intents, Client, Message, app_commands
 from discord.ext import commands, tasks
-from responses import get_response
+import requests
+import spacy
+
 
 # load token
 load_dotenv()
 bot_token = os.getenv('bot_token')
+tenor_api = os.getenv('tenor_api')
 
 # bot setup
 intents: Intents = Intents.default()
 intents.message_content = True
 client = commands.Bot(command_prefix="!", intents=discord.Intents.all())
+nlp = spacy.load("en_core_web_sm")
 
-async def send_message(message: Message, user_message: str) -> None:
-    if not user_message:
-        print('Message Empty')
-        return
-    if is_private := user_message[0] == '?':
-        user_message = user_message[1:]
-
+def get_gif(query):
+    url = f"https://api.tenor.com/v1/search?q={query}&key={tenor_api}&limit=1"
+    response = requests.get(url)
     try:
-        response: str = get_response(user_message)
-        await message.author.send(response) if is_private else await message.channel.send(response)
-    except Exception as e:
-        print(e)
+        response.raise_for_status()
+        data = response.json()
+        if 'results' in data and data['results']:
+            return data['results'][0]['media'][0]['gif']['url']
+        else: 
+            print(f"No Gifs found for query: {query}")
+    except requests.exceptions.HTTPError as e:
+        print(f"HTTP error: {e}")
+    except requests.exceptions.RequestException as e:
+        print(f"Request error: {e}")
+    except ValueError as e:
+        print(f"JSON decode error: {e}")
+    return None
+
+def extract_keywords(text):
+    doc = nlp(text)
+    keywords = set()
+    for enity in doc.ents:
+        keywords.add(enity.text)
+    for token in doc:
+        if token.is_alpha and not token.is_stop:
+            keywords.add(token.lemma_)
+    return keywords
 
 # bot startup
 @client.event
@@ -43,17 +62,20 @@ async def on_ready() -> None:
 async def hello(interaction: discord.Interaction):
     await interaction.response.send_message(f'Hello {interaction.user.mention}, You\'re a true one')
 
+
 @client.event
 async def on_message(message: Message) -> None:
     if message.author == client.user:
         return
     
-    username: str = str(message.author)
-    user_message: str = message.content
-    channel: str = str(message.channel)
+    keywords = extract_keywords(message.content.lower())
 
-    print(f'[{channel}] {username}: {user_message}')
-    await send_message(message, user_message)
+    for keyword in keywords:
+        gif_url = get_gif(keyword)
+        if gif_url:
+            await message.channel.send(gif_url)
+            break
+
 
 def main() -> None:
     client.run(token=bot_token)
